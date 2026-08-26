@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens.
+ *
+ * The chart palette is not chosen by eye — it comes from the validated
+ * reference palette and was re-checked with the dataviz validator for both
+ * surfaces (lightness band, chroma floor, CVD separation, normal-vision floor,
+ * contrast). Changing a hex here without re-running that check can silently
+ * produce a chart that two people in a room of twelve cannot read.
+ *
+ * Dark values are declared under BOTH the media query and the [data-theme]
+ * scope, so an explicit theme choice wins in either direction.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  color-scheme: light;
+
+  /* surfaces & ink */
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f2f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --hairline: rgba(11, 11, 11, 0.1);
+
+  /* categorical series — fixed order, never cycled */
+  --series-1: #2a78d6; /* blue   */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua   */
+  --series-4: #eda100; /* yellow */
+
+  /* de-emphasis, for the "one series is the point" pattern */
+  --series-muted: #c3c2b7;
+
+  /*
+   * Sleep stages use an ORDINAL blue ramp rather than categorical hues:
+   * the stages are genuinely ordered by depth, so more-depth = darker reads
+   * correctly and needs no colour memory. Awake is not a sleep stage, so it
+   * sits outside the ramp in neutral grey.
+   */
+  --sleep-deep: #184f95;
+  --sleep-core: #2a78d6;
+  --sleep-rem: #86b6ef;
+  --sleep-awake: #c3c2b7;
+
+  /* status — reserved, never reused as a series colour */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+  --delta-up-good: #006300;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232322;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --hairline: rgba(255, 255, 255, 0.1);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-muted: #52514e;
+
+    --sleep-deep: #9ec5f4;
+    --sleep-core: #3987e5;
+    --sleep-rem: #184f95;
+    --sleep-awake: #52514e;
+
+    --delta-up-good: #0ca30c;
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232322;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --hairline: rgba(255, 255, 255, 0.1);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-muted: #52514e;
+
+  --sleep-deep: #9ec5f4;
+  --sleep-core: #3987e5;
+  --sleep-rem: #184f95;
+  --sleep-awake: #52514e;
+
+  --delta-up-good: #0ca30c;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-grid: var(--grid);
+  --color-axis: var(--axis);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  background: var(--page);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Clears the notch and the home indicator when installed to the home screen. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Big standalone numbers use proportional figures; `121` looks loose in
+   tabular at display sizes. Tabular is reserved for columns that must align. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }

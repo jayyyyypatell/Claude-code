@@ -18,7 +18,27 @@
 import { client } from "../src/db/index";
 import { rebuildRollups } from "../src/db/rollups";
 import { describeMetric } from "../src/lib/metrics/catalog";
-import { addDays, localDay, nightOfDate, todayLocal } from "../src/lib/time/day";
+import {
+  addDays,
+  localDay,
+  nightOfDate,
+  startOfLocalDayMs,
+  todayLocal,
+} from "../src/lib/time/day";
+
+/**
+ * Build a UTC instant from a local wall-clock time on a given day.
+ *
+ * The seed previously composed timestamps as `Date.parse(`${date}T08:00:00Z`)`,
+ * i.e. in UTC. Rendered back in the user's timezone that shifted everything by
+ * their offset — a 23:24 bedtime displayed as 19:24, and the whole night landed
+ * on the wrong side of the night-of boundary. Synthetic data that misrepresents
+ * the app's own timezone handling is worse than no data, because it makes
+ * correct code look broken.
+ */
+function localInstant(date: string, hoursFromMidnight: number): number {
+  return startOfLocalDayMs(date, TZ) + Math.round(hoursFromMidnight * 3_600_000);
+}
 
 /* ------------------------------------------------------------------ config */
 
@@ -201,8 +221,7 @@ async function main(): Promise<void> {
     // needs to render them without breaking.
     if (rng() < 0.045) sleepHours = clamp(sleepHours - gauss(2.4, 0.7), 3.0, 6);
 
-    const bedMs =
-      Date.parse(`${date}T00:00:00Z`) + Math.round(bedHour * 3_600_000);
+    const bedMs = localInstant(date, bedHour);
     const wakeMs = bedMs + Math.round(sleepHours * 3_600_000);
 
     const inBed = sleepHours * (1 + Math.abs(gauss(0.07, 0.03)));
@@ -233,7 +252,7 @@ async function main(): Promise<void> {
     );
 
     const tzOff = 0;
-    const noon = Date.parse(`${date}T12:00:00Z`);
+    const noon = localInstant(date, 12);
 
     push({ metricTypeId: ids.restingHr, startAt: noon, grain: "daily", localDate: date, tzOffsetMinutes: tzOff, value: +restingHr.toFixed(1), valueMin: null, valueMax: null, unit: "bpm", sourceName: "Apple Watch" });
     push({ metricTypeId: ids.hrv, startAt: noon, grain: "daily", localDate: date, tzOffsetMinutes: tzOff, value: +hrv.toFixed(1), valueMin: null, valueMax: null, unit: "ms", sourceName: "Apple Watch" });
@@ -266,8 +285,8 @@ async function main(): Promise<void> {
       if (v <= 0) continue;
       push({
         metricTypeId: ids.steps,
-        startAt: Date.parse(`${date}T${String(h + 6).padStart(2, "0")}:00:00Z`),
-        endAt: Date.parse(`${date}T${String(h + 6).padStart(2, "0")}:59:59Z`),
+        startAt: localInstant(date, h + 6),
+        endAt: localInstant(date, h + 6) + 59 * 60_000 + 59_000,
         grain: "hourly", localDate: date, tzOffsetMinutes: tzOff,
         value: v, valueMin: null, valueMax: null,
         unit: "count", sourceName: "iPhone",
@@ -289,7 +308,7 @@ async function main(): Promise<void> {
       const avg = clamp(gauss(restingHr + 18, 9), 48, 150);
       push({
         metricTypeId: ids.heartRate,
-        startAt: Date.parse(`${date}T${String(h).padStart(2, "0")}:00:00Z`),
+        startAt: localInstant(date, h),
         grain: "hourly", localDate: date, tzOffsetMinutes: tzOff,
         value: +avg.toFixed(1),
         valueMin: +clamp(avg - Math.abs(gauss(9, 4)), 40, 200).toFixed(1),
@@ -314,7 +333,7 @@ async function main(): Promise<void> {
       hardToday = k.hard;
       const durMin = k.minM + rng() * (k.maxM - k.minM);
       const startH = isWeekend ? 9 + rng() * 5 : rng() < 0.5 ? 6.5 + rng() * 1.5 : 17.5 + rng() * 2;
-      const wStart = Date.parse(`${date}T00:00:00Z`) + Math.round(startH * 3_600_000);
+      const wStart = localInstant(date, startH);
       const wEnd = wStart + Math.round(durMin * 60_000);
       const avgHr = clamp(gauss(k.hard ? 148 : 112, 12), 80, 185);
 
@@ -338,7 +357,7 @@ async function main(): Promise<void> {
     if (rng() < 0.62) {
       push({
         metricTypeId: ids.weight,
-        startAt: Date.parse(`${date}T07:20:00Z`),
+        startAt: localInstant(date, 7 + 20 / 60),
         grain: "daily", localDate: date, tzOffsetMinutes: tzOff,
         value: +weightKg.toFixed(2), valueMin: null, valueMax: null,
         unit: "kg", sourceName: "Withings",

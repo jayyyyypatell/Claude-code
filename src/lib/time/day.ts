@@ -10,8 +10,16 @@
  * zone (and a DST boundary) without touching the environment.
  */
 
-/** IANA zone the user lives in. All local-day maths resolves against this. */
-export const USER_TIMEZONE = process.env.USER_TIMEZONE ?? "UTC";
+/**
+ * IANA zone the user lives in. All local-day maths resolves against this.
+ *
+ * Read from the public copy first so the same value is used on the server and
+ * in the browser — `USER_TIMEZONE` alone is undefined in the client bundle,
+ * which would silently make every client-rendered time UTC. `next.config.ts`
+ * maps one into the other.
+ */
+export const USER_TIMEZONE =
+  process.env.NEXT_PUBLIC_USER_TIMEZONE ?? process.env.USER_TIMEZONE ?? "UTC";
 
 /** A local calendar day, `YYYY-MM-DD`. */
 export type DayString = string;
@@ -225,18 +233,33 @@ export function nightOfDate(
   return localDay(sleepEndMs - 12 * MS_PER_HOUR, timeZone);
 }
 
-/** `2026-08-26` → `Wed 26 Aug`. Display only. */
-export function formatDayShort(
-  day: DayString,
-  timeZone: string = USER_TIMEZONE,
-): string {
-  const ms = startOfLocalDayMs(day, timeZone);
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(new Date(ms));
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * `2026-08-26` → `Wed 26 Aug`. Display only.
+ *
+ * Assembled by hand rather than via `Intl.DateTimeFormat`. This string is
+ * rendered on the server and hydrated in the browser, and the two runtimes
+ * ship different ICU versions — Node produced `Tue 28 Jul` while Chromium
+ * produced `Tue, 28 Jul` for the same locale and options, which React
+ * correctly reports as a hydration mismatch and re-renders the whole subtree
+ * over. Any Intl-formatted string inside a client component is exposed to that
+ * drift; a fixed lookup table simply cannot disagree with itself.
+ */
+export function formatDayShort(day: DayString): string {
+  const { year, month, day: d } = parseDayString(day);
+  const weekday = new Date(Date.UTC(year, month - 1, d)).getUTCDay();
+  return `${WEEKDAY_NAMES[weekday]} ${d} ${MONTH_NAMES[month - 1]}`;
+}
+
+/** `2026-08-26` → `26 Aug`. For tight spaces where the weekday won't fit. */
+export function formatDayCompact(day: DayString): string {
+  const { month, day: d } = parseDayString(day);
+  return `${d} ${MONTH_NAMES[month - 1]}`;
 }
 
 /** Local wall-clock `HH:MM` of an instant — bedtimes, wake times. */
