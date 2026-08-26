@@ -1,0 +1,14 @@
+{
+  "data": {
+    "metrics": [
+      { "name": "protein",           "units": "g",     "data": [{ "date": "2026-08-26 20:00:00 -0400", "qty": 118,  "source": "MyFitnessPal" }] },
+      { "name": "sodium",            "units": "mg",    "data": [{ "date": "2026-08-26 20:00:00 -0400", "qty": 2300, "source": "MyFitnessPal" }] },
+      { "name": "dietary_water",     "units": "mL",    "data": [{ "date": "2026-08-26 20:00:00 -0400", "qty": 2100, "source": "iPhone" }] },
+      { "name": "dietary_energy",    "units": "kcal",  "data": [{ "date": "2026-08-26 20:00:00 -0400", "qty": 2450, "source": "MyFitnessPal" }] },
+      { "name": "weight_body_mass",  "units": "lb",    "data": [{ "date": "2026-08-26 07:20:00 -0400", "qty": 185.2, "source": "Withings" }] },
+      { "name": "body_temperature",  "units": "degF",  "data": [{ "date": "2026-08-26 07:20:00 -0400", "qty": 98.6, "source": "Thermometer" }] },
+      { "name": "blood_glucose",     "units": "mg/dL", "data": [{ "date": "2026-08-26 13:00:00 -0400", "qty": 104, "source": "Dexcom" }] },
+      { "name": "walking_running_distance", "units": "mi", "data": [{ "date": "2026-08-26 12:00:00 -0400", "qty": 3.1, "source": "iPhone" }] }
+    ]
+  }
+}

@@ -8,6 +8,13 @@
       "when": 1787782085335,
       "tag": "0000_fancy_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787782720315,
+      "tag": "0001_sour_leper_queen",
+      "breakpoints": true
     }
   ]
 }

@@ -71,7 +71,7 @@ const CATALOG: Record<string, CatalogEntry> = {
   respiratory_rate: { displayName: "Respiratory Rate", category: "vitals", agg: "avg", canonicalUnit: "bpm" },
   body_temperature: { displayName: "Body Temperature", category: "vitals", agg: "avg", canonicalUnit: "degC" },
   apple_sleeping_wrist_temperature: { displayName: "Wrist Temperature (Sleeping)", category: "vitals", agg: "avg", canonicalUnit: "degC" },
-  blood_glucose: { displayName: "Blood Glucose", category: "vitals", agg: "avg", canonicalUnit: "mg/dl" },
+  blood_glucose: { displayName: "Blood Glucose", category: "vitals", agg: "avg", canonicalUnit: "mg/dL" },
   vo2_max: { displayName: "VO₂ Max", category: "vitals", agg: "last", canonicalUnit: "mL/kg·min" },
   forced_vital_capacity: { displayName: "Forced Vital Capacity", category: "vitals", agg: "avg", canonicalUnit: "L" },
   peak_expiratory_flow_rate: { displayName: "Peak Expiratory Flow", category: "vitals", agg: "avg", canonicalUnit: "L/min" },

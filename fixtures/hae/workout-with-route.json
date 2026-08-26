@@ -1,0 +1,23 @@
+{
+  "data": {
+    "metrics": [],
+    "workouts": [
+      {
+        "id": "1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D",
+        "name": "Running",
+        "start": "2026-08-26 07:02:00 -0400",
+        "end":   "2026-08-26 07:48:00 -0400",
+        "duration": 2760,
+        "activeEnergyBurned": { "qty": 486.2, "units": "kcal" },
+        "distance": { "qty": 8.12, "units": "km" },
+        "heartRate": { "Min": 98, "Avg": 152.4, "Max": 178 },
+        "temperature": { "qty": 19.5, "units": "degC" },
+        "route": [
+          { "latitude": 40.7128, "longitude": -74.006, "altitude": 11.2, "timestamp": "2026-08-26 07:02:00 -0400" },
+          { "latitude": 40.7135, "longitude": -74.0071, "altitude": 11.6, "timestamp": "2026-08-26 07:02:30 -0400" }
+        ],
+        "source": "Apple Watch"
+      }
+    ]
+  }
+}

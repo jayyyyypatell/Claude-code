@@ -1,0 +1,21 @@
+{
+  "data": {
+    "metrics": [
+      {
+        "name": "heart_rate",
+        "units": "bpm",
+        "data": [
+          { "date": "2026-08-26 08:00:00 -0400", "Min": 54, "Avg": 63.4, "Max": 118, "source": "Apple Watch" },
+          { "date": "2026-08-26 09:00:00 -0400", "Min": 58, "Avg": 71.2, "Max": 154, "source": "Apple Watch" }
+        ]
+      },
+      {
+        "name": "resting_heart_rate",
+        "units": "bpm",
+        "data": [
+          { "date": "2026-08-26 12:00:00 -0400", "qty": 56, "source": "Apple Watch" }
+        ]
+      }
+    ]
+  }
+}

@@ -592,11 +592,24 @@ export const ingestLog = sqliteTable(
     /** Path of the archived raw payload, relative to the repo root. */
     rawPath: text("raw_path"),
 
+    /**
+     * SHA-256 of the exact request body.
+     *
+     * Health Auto Export retries on timeout even when the write actually
+     * succeeded. The upserts make a replay harmless, but recognising an
+     * identical recent body lets us skip redoing the rollup work during a
+     * retry storm.
+     */
+    bodyHash: text("body_hash"),
+
     error: text("error"),
     /** Non-fatal problems — unparseable dates, unknown shapes, skipped rows. */
     warnings: text("warnings", { mode: "json" }).$type<string[] | null>(),
   },
-  (t) => [index("ingest_log_received_idx").on(t.receivedAt)],
+  (t) => [
+    index("ingest_log_received_idx").on(t.receivedAt),
+    index("ingest_log_hash_idx").on(t.bodyHash, t.receivedAt),
+  ],
 );
 
 /* -------------------------------------------------------------------------- */

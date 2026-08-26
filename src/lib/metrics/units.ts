@@ -68,7 +68,7 @@ const ALIASES: Record<string, string> = {
   bpm: "bpm", "count/min": "bpm", "count/s": "count/s",
   "%": "%", percent: "%",
   mmhg: "mmHg",
-  "mg/dl": "mg/dl", "mmol/l": "mmol/L",
+  "mg/dl": "mg/dL", "mmol/l": "mmol/L",
   l: "L", liter: "L", litre: "L", ml: "mL", "fl_oz_us": "fl_oz",
   "m/s": "m/s", "km/h": "km/h", mph: "mph",
   "ml/kg·min": "mL/kg·min", "ml/kg/min": "mL/kg·min", "ml/(kg*min)": "mL/kg·min",
@@ -121,7 +121,7 @@ const FACTORS: Record<string, { dimension: Dimension; toCanonical: number }> = {
   "count/s": { dimension: "frequency", toCanonical: 60 },
   "%": { dimension: "percent", toCanonical: 1 },
   mmHg: { dimension: "pressure", toCanonical: 1 },
-  "mg/dl": { dimension: "concentration", toCanonical: 1 },
+  "mg/dL": { dimension: "concentration", toCanonical: 1 },
   count: { dimension: "count", toCanonical: 1 },
   "mL/kg·min": { dimension: "vo2", toCanonical: 1 },
   degC: { dimension: "temperature", toCanonical: 1 },
@@ -182,7 +182,7 @@ export function toCanonical(
   }
   if (token === "mmol/L") {
     // Blood glucose. 18.0182 is the molar mass factor for glucose.
-    return { value: value * 18.0182, unit: "mg/dl", converted: true };
+    return { value: value * 18.0182, unit: "mg/dL", converted: true };
   }
 
   const entry = FACTORS[token];
@@ -204,6 +204,53 @@ export function fromCanonical(value: number, displayUnit: string): number {
   const entry = FACTORS[token];
   if (!entry) return value;
   return value / entry.toCanonical;
+}
+
+/**
+ * Convert between any two units of the same dimension.
+ *
+ * This exists because a *dimension's* canonical unit is too coarse to be a
+ * metric's storage unit. Mass covers both body weight and dietary sodium: kg
+ * is right for one and absurd for the other (a day's sodium is 0.0023 kg).
+ * Storing everything in the dimension default would render "0.1 g" for 100g
+ * of protein.
+ *
+ * So `metric_types.canonicalUnit` is authoritative per metric, and this routes
+ * through the dimension canonical only as an intermediate. Mismatched
+ * dimensions convert nothing and report it, rather than silently scaling a
+ * number by a meaningless factor.
+ */
+export function convertTo(
+  value: number,
+  fromUnit: string | null | undefined,
+  toUnit: string | null | undefined,
+): { value: number; unit: string; converted: boolean; compatible: boolean } {
+  const from = normalizeUnitToken(fromUnit);
+  const to = normalizeUnitToken(toUnit);
+
+  // Nothing to aim at — fall back to the dimension default.
+  if (!to) {
+    const c = toCanonical(value, from);
+    return { ...c, compatible: true };
+  }
+  if (!from || from === to) {
+    return { value, unit: to, converted: false, compatible: true };
+  }
+
+  const fromDim = dimensionOf(from);
+  const toDim = dimensionOf(to);
+
+  if (fromDim === "unknown" || toDim === "unknown" || fromDim !== toDim) {
+    return { value, unit: from, converted: false, compatible: false };
+  }
+
+  const viaCanonical = toCanonical(value, from).value;
+  return {
+    value: fromCanonical(viaCanonical, to),
+    unit: to,
+    converted: true,
+    compatible: true,
+  };
 }
 
 /**

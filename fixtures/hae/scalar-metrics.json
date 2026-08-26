@@ -1,0 +1,30 @@
+{
+  "data": {
+    "metrics": [
+      {
+        "name": "step_count",
+        "units": "count",
+        "data": [
+          { "date": "2026-08-26 08:00:00 -0400", "qty": 1240, "source": "iPhone" },
+          { "date": "2026-08-26 09:00:00 -0400", "qty": 980,  "source": "iPhone" },
+          { "date": "2026-08-26 10:00:00 -0400", "qty": 2310, "source": "iPhone" }
+        ]
+      },
+      {
+        "name": "walking_running_distance",
+        "units": "km",
+        "data": [
+          { "date": "2026-08-26 12:00:00 -0400", "qty": 6.4, "source": "iPhone" }
+        ]
+      },
+      {
+        "name": "active_energy",
+        "units": "kcal",
+        "data": [
+          { "date": "2026-08-26 12:00:00 -0400", "qty": 512, "source": "Apple Watch" }
+        ]
+      }
+    ],
+    "workouts": []
+  }
+}

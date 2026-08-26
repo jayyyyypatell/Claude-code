@@ -10,8 +10,10 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed": "tsx scripts/seed.ts",
-    "test:watch": "vitest"
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "test:watch": "vitest",
+    "replay": "tsx --env-file=.env.local scripts/replay-fixtures.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

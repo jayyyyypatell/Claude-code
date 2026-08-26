@@ -1,0 +1,15 @@
+{
+  "data": {
+    "metrics": [
+      {
+        "name": "step_count",
+        "units": "count",
+        "data": [
+          { "date": "2026-08-26 23:30:00 +0900", "qty": 300, "source": "iPhone" },
+          { "date": "2026-08-26 23:30:00 -0700", "qty": 400, "source": "iPhone" },
+          { "date": "2026-08-26 09:00:00 +0530", "qty": 500, "source": "iPhone" }
+        ]
+      }
+    ]
+  }
+}

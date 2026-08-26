@@ -1,0 +1,20 @@
+{
+  "data": {
+    "metrics": [
+      {
+        "name": "blood_pressure",
+        "units": "mmHg",
+        "data": [
+          { "date": "2026-08-26 07:30:00 -0400", "systolic": 118, "diastolic": 76, "source": "Omron" }
+        ]
+      },
+      {
+        "name": "blood_glucose",
+        "units": "mg/dL",
+        "data": [
+          { "date": "2026-08-26 13:10:00 -0400", "qty": 104, "mealTime": "After Meal", "source": "Dexcom" }
+        ]
+      }
+    ]
+  }
+}
