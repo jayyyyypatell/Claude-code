@@ -1,0 +1,74 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------------------------------------------------------------
+# Life tracker: PERSONAL HEALTH DATA — this repository is PUBLIC.
+# Nothing below may ever be committed.
+# ---------------------------------------------------------------
+
+# SQLite database + WAL/SHM sidecars
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Raw Health Auto Export payloads archived before parsing
+/data/raw/
+
+# Apple Health export archives
+export.zip
+export.xml
+apple_health_export/
+
+# Local secrets (belt-and-braces; .env* is already covered above)
+.env.local
+.env*.local
+
+# Test artifacts
+/coverage/
+/.vitest/
+
+# ...but the template with no real values in it IS meant to be committed.
+!.env.example
