@@ -437,9 +437,15 @@ function normalizeSleep(
  *
  * Phases are grouped by night-of date and then split on gaps longer than an
  * hour, so an afternoon nap doesn't get merged into the previous night.
+ *
+ * Exported because `export.xml` carries sleep the same way — as loose phase
+ * intervals — and reconstructing nights differently in the two ingest paths
+ * would give the same night two different durations depending on which path
+ * loaded it.
  */
-function sessionsFromPhases(
+export function sessionsFromPhases(
   phases: { start: number; end: number; phase: string; date: string }[],
+  sourceName = "",
 ): NormalizedSleep[] {
   const GAP_MS = 60 * MINUTE_MS;
   const byNight = new Map<string, typeof phases>();
@@ -484,7 +490,7 @@ function sessionsFromPhases(
         awakeMin: awake || null,
         inBedMin: inBed || null,
         efficiency: inBed > 0 ? asleep / inBed : null,
-        sourceName: "",
+        sourceName,
         meta: { reconstructedFromPhases: true, phaseCount: group.length },
       });
       group = [];
