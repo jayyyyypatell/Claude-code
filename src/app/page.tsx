@@ -4,6 +4,7 @@ import { HabitList, type HabitItem } from "@/components/HabitList";
 import { StatTile } from "@/components/StatTile";
 import { SyncBadge } from "@/components/SyncBadge";
 import { listHabitsWithProgress } from "@/db/queries/habits";
+import { latestInsight } from "@/db/queries/insights";
 import { getJournalEntry } from "@/db/queries/journal";
 import {
   getSleepNights,
@@ -11,6 +12,7 @@ import {
   getTodayMetrics,
   getWorkouts,
 } from "@/db/queries/metrics";
+import { maybeTriggerWeekly } from "@/lib/ai/trigger";
 import { describeSchedule, isScheduled } from "@/lib/habits/streak";
 import { formatDuration, formatValue } from "@/lib/format";
 import { addDays, formatDayShort, todayLocal } from "@/lib/time/day";
@@ -43,6 +45,10 @@ export default async function TodayPage() {
   const sync = await getSyncStatus();
   const today = todayLocal(undefined, sync.now);
 
+  // Generate last week's report if it's missing — fire-and-forget, so the page
+  // never waits on a model call. This is the zero-infrastructure scheduler.
+  maybeTriggerWeekly();
+
   const [metrics, nights, workouts, habits, journalToday] = await Promise.all([
     getTodayMetrics(PINNED, today),
     getSleepNights(addDays(today, -2), today),
@@ -50,6 +56,8 @@ export default async function TodayPage() {
     listHabitsWithProgress(today),
     getJournalEntry(today),
   ]);
+
+  const insight = await latestInsight();
 
   // Only what is actually expected today — a Mon/Wed/Fri habit on a Tuesday
   // is noise on this page, not a reminder.
@@ -111,6 +119,27 @@ export default async function TodayPage() {
       </header>
 
       {!hasAnyData && <EmptyState />}
+
+      {insight && (
+        <Link
+          href="/coach"
+          className="rounded-xl border p-4 transition-colors"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--hairline)",
+          }}
+        >
+          <div
+            className="mb-1 text-xs font-medium uppercase tracking-wide"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            This week
+          </div>
+          <p className="text-sm" style={{ color: "var(--ink)" }}>
+            {insight.summary}
+          </p>
+        </Link>
+      )}
 
       {notable.length > 0 && (
         <section
