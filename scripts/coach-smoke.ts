@@ -18,6 +18,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { COACH_MODEL, MAX_ITERATIONS, getAnthropic } from "../src/lib/ai/client";
 import { buildPromptContext, buildSystemPrompt } from "../src/lib/ai/system-prompt";
 import { coachTools } from "../src/lib/ai/tools";
+import { isMockMode } from "../src/lib/ai/client";
+import { runMockCoach } from "../src/lib/ai/mock";
 import { todayLocal } from "../src/lib/time/day";
 
 const question =
@@ -25,6 +27,20 @@ const question =
   "How did I sleep last week compared with the week before, and did it show up anywhere else?";
 
 async function main(): Promise<void> {
+  // AI_PROVIDER=mock is documented as the way to exercise the coach without a
+  // key, so the CLI has to honour it too — otherwise the one path that needs
+  // no key is the one path you can't reach from here.
+  if (isMockMode()) {
+    console.log(`Q: ${question}`);
+    console.log("   (mock provider — real data, canned wording)\n");
+    await runMockCoach(question, todayLocal(), (event, data) => {
+      if (event === "text") process.stdout.write((data as { delta: string }).delta);
+      else if (event === "tool") console.log(`\n[tool] ${JSON.stringify(data)}`);
+    });
+    console.log("\n");
+    return;
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error(
       "ANTHROPIC_API_KEY is not set.\n" +

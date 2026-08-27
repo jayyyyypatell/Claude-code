@@ -77,14 +77,37 @@ export async function runMockCoach(
     const b = lastWeek.average_hours as number | null;
     const delta = a != null && b != null ? a - b : null;
 
+    // No nights recorded is not a measurement of zero. Saying "you averaged 0h,
+    // essentially flat" about an empty database is worse than saying nothing,
+    // and this is the state every new install starts in.
+    if (!thisWeek.nights_recorded) {
+      await streamText(
+        "I don't have any sleep data yet.\n\n" +
+          "Connect your phone from **Settings**, or import your history with " +
+          "`npm run import -- ~/Downloads/export.zip`. Once a few nights are in, " +
+          "ask me again and I'll compare them.",
+        send,
+      );
+      send("done", {});
+      return;
+    }
+
+    // The correlation needs enough paired days to mean anything; `toolCorrelate`
+    // already decides that and says so in `caveat`. Repeating its number as
+    // prose regardless is how "r = null" reached the screen.
+    const correlationLine =
+      corr.r != null && Number(corr.n) >= 20
+        ? `\n\nAcross the last 90 days, your sleep and next-day resting heart rate correlate at **r = ${corr.r}** (${corr.strength}, n = ${corr.n}). ` +
+          `Shorter nights go with a higher resting heart rate the following day.\n\n_${corr.caveat}_`
+        : `\n\n_Not enough paired days yet to say how this tracks against your resting heart rate._`;
+
     await streamText(
-      `You averaged **${a ?? "—"}h** over the last 7 nights, against **${b ?? "—"}h** the week before` +
+      `You averaged **${a ?? "—"}h** over the last 7 nights` +
+        (b != null ? `, against **${b}h** the week before` : "") +
         (delta != null
           ? ` — ${Math.abs(delta) < 0.2 ? "essentially flat" : delta > 0 ? `up ${delta.toFixed(1)}h` : `down ${Math.abs(delta).toFixed(1)}h`}.`
           : ".") +
-        `\n\nAcross the last 90 days, your sleep and next-day resting heart rate correlate at **r = ${corr.r}** (${corr.strength}, n = ${corr.n}). ` +
-        `Shorter nights go with a higher resting heart rate the following day.\n\n` +
-        `_${corr.caveat}_`,
+        correlationLine,
       send,
     );
     send("done", {});

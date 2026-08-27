@@ -213,10 +213,13 @@ export async function toolGetSleep(input: {
   return {
     range: { start: from, end: to },
     nights_recorded: nights.length,
-    average_hours: round(
-      nights.reduce((s, n) => s + n.totalSleepMin, 0) / (nights.length || 1) / 60,
-      2,
-    ),
+    // null, not 0, when there are no nights. `|| 1` made an empty database
+    // report "0 hours average", which reads as a real and alarming measurement
+    // rather than an absence of one — exactly the confident wrong answer this
+    // layer exists to prevent.
+    average_hours: nights.length
+      ? round(nights.reduce((s, n) => s + n.totalSleepMin, 0) / nights.length / 60, 2)
+      : null,
     // Minutes are converted to hours here: the model reasons about sleep in
     // hours, and making it divide 437 by 60 repeatedly invites arithmetic slips.
     nights: nights.map((n) => ({

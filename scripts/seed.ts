@@ -19,6 +19,7 @@ import { client } from "../src/db/index";
 import { rebuildRollups } from "../src/db/rollups";
 import { describeMetric } from "../src/lib/metrics/catalog";
 import {
+  USER_TIMEZONE,
   addDays,
   localDay,
   nightOfDate,
@@ -48,7 +49,11 @@ const DAYS = Number(
     (args.includes("--days") ? args[args.indexOf("--days") + 1] : 550),
 );
 const RESET = args.includes("--reset");
-const TZ = process.env.USER_TIMEZONE ?? "America/New_York";
+// The shared constant rather than a third default: this file previously said
+// America/New_York while day.ts and next.config.ts said UTC, so seeding with
+// USER_TIMEZONE unset wrote data bucketed in one zone and rendered it in
+// another.
+const TZ = USER_TIMEZONE;
 
 /* --------------------------------------------------------------------- rng */
 

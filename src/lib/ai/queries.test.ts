@@ -318,3 +318,33 @@ describe("the whole point: a full question stays affordable", () => {
     expect(total).toBeLessThan(8000);
   });
 });
+
+/**
+ * An empty range is not a measurement of zero.
+ *
+ * These run regardless of whether the database has data, because the range is
+ * chosen to be empty either way — and the failure they guard is one that only
+ * shows up on a fresh install, which is precisely when nobody is running the
+ * test suite.
+ */
+describe("empty ranges report absence, not zero", () => {
+  it("returns null average sleep rather than 0", async () => {
+    const r = await toolGetSleep({ start_date: "1990-01-01", end_date: "1990-01-07" });
+    expect(r.nights_recorded).toBe(0);
+    // 0 would render as "you averaged 0h", which reads as a real and alarming
+    // measurement rather than an absence of one.
+    expect(r.average_hours).toBeNull();
+  });
+
+  it("returns a null correlation rather than a number", async () => {
+    const r = await toolCorrelate({
+      metric_a: "sleep",
+      metric_b: "resting_heart_rate",
+      start_date: "1990-01-01",
+      end_date: "1990-03-01",
+      lag_days: 1,
+    });
+    expect(r.r).toBeNull();
+    expect(r.n).toBe(0);
+  });
+});

@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 import { CopyField } from "@/components/CopyField";
 import { getSyncStatus, listMetrics } from "@/db/queries/metrics";
 import { coachIsConfigured, isMockMode } from "@/lib/ai/client";
@@ -16,7 +18,19 @@ export const dynamic = "force-dynamic";
  * an iPhone is genuinely unpleasant.
  */
 export default async function SettingsPage() {
-  const [sync, metrics] = await Promise.all([getSyncStatus(), listMetrics()]);
+  const [sync, metrics, h] = await Promise.all([
+    getSyncStatus(),
+    listMetrics(),
+    headers(),
+  ]);
+
+  // Built from the request rather than a placeholder, so this is the exact
+  // string to paste into the phone. Reading it off the page you are already
+  // looking at beats assembling it from a hostname you had to go and find.
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? "http";
+  const ingestUrl = `${proto}://${host}/api/ingest/hae`;
+  const onLoopback = /^(localhost|127\.|\[?::1)/.test(host);
 
   const token = process.env.INGEST_TOKEN ?? "";
   const configured = {
@@ -77,8 +91,8 @@ export default async function SettingsPage() {
         >
           <li>Open Health Auto Export → Automations → add a REST API automation.</li>
           <li>
-            Set the URL to <code>&lt;this site&gt;/api/ingest/hae</code>, method{" "}
-            <strong>POST</strong>, format <strong>JSON</strong>.
+            Set the URL to the address below, method <strong>POST</strong>,
+            format <strong>JSON</strong>.
           </li>
           <li>
             Add a header named <code>x-ingest-token</code> with the token below.
@@ -89,6 +103,8 @@ export default async function SettingsPage() {
             hours.
           </li>
         </ol>
+
+        <CopyField label="Endpoint URL" value={ingestUrl} />
 
         {configured.ingest ? (
           <CopyField label="x-ingest-token" value={token} secret />
@@ -102,12 +118,14 @@ export default async function SettingsPage() {
           </p>
         )}
 
-        <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-          Your phone can&rsquo;t reach <code>localhost</code>. For testing, run{" "}
-          <code>npx cloudflared tunnel --url http://localhost:3000</code> to get
-          a public HTTPS address. For daily use, deploy it — and don&rsquo;t
-          leave health data behind a random public tunnel URL long-term.
-        </p>
+        {onLoopback && (
+          <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
+            You&rsquo;re viewing this on the machine it runs on, so the address
+            above says <code>localhost</code> — which your phone can&rsquo;t
+            reach. Stop the server and run <code>npm run lan</code> instead: it
+            serves the app to your home WiFi and prints the address to use here.
+          </p>
+        )}
       </section>
 
       <section

@@ -4,8 +4,9 @@ A personal life tracker that pulls everything out of Apple Health automatically,
 adds habits and a daily journal, and puts an AI coach on top that can actually
 read your data.
 
-It's a Next.js web app you install to your iPhone home screen. Your phone pushes
-health data to it several times a day on its own — no manual exporting.
+It runs on your own Mac. Your iPhone pushes health data to it over your home
+WiFi several times a day on its own — no manual exporting, and nothing leaves
+your network. You can install it to your phone's home screen like an app.
 
 > **This repository is public.** Your health data, database, and API keys are
 > excluded by `.gitignore` and must stay that way. See [Privacy](#privacy).
@@ -42,67 +43,110 @@ sync has been running is safe and repeatable.
 
 ---
 
-## Getting started
+## Run it on your Mac
+
+Everything runs on your own laptop. Nothing goes to anyone else's server.
+
+**If you have never used Terminal:** press ⌘-Space, type `Terminal`, press Enter.
+A window opens where you type commands. Paste these one at a time.
 
 ```bash
-npm install
-cp .env.example .env.local          # then fill it in — see below
-npx drizzle-kit push                # create the database
-npm run seed -- --days=550 --reset  # 18 months of realistic fake data
+git clone https://github.com/jayyyyypatell/Claude-code.git
+cd Claude-code
+npm run setup
 npm run dev
 ```
 
-### Configuring `.env.local`
+Then open **http://localhost:3000**.
 
-Generate an ingest token:
+That's it. `npm run setup` installs everything, detects your timezone, generates
+your passphrase and secrets, and creates the database. It prints the passphrase
+at the end — **write it down**, it's the only copy.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+Running it again is safe: it never overwrites an existing `.env.local`.
 
-`USER_TIMEZONE` matters more than it looks. Every "per day" number is bucketed
-against a local day, so setting it wrong shifts steps and sleep onto
-neighbouring days.
+> Needs Node 20.9 or newer. If `npm` isn't found, install the LTS build from
+> [nodejs.org](https://nodejs.org) and start again.
 
-**Before putting this anywhere reachable**, set `APP_PASSWORD` and a 32+
-character `SESSION_SECRET`. Without them the app runs with no login at all,
-which is right on your own machine and wrong everywhere else — this holds your
-complete health history. The settings page says so in red when it's unset.
+### If something goes wrong
 
-For the AI coach, add `ANTHROPIC_API_KEY`. To try the interface first without
-spending anything, set `AI_PROVIDER=mock`: it reads your real data through the
-same query layer and returns canned wording, so no numbers are invented.
+| What you see | What it means |
+|---|---|
+| `command not found: npm` | Node isn't installed — see the note above. |
+| The page asks for a passphrase | Normal. It's the one `npm run setup` printed. |
+| Times or daily totals look shifted | `USER_TIMEZONE` in `.env.local` is wrong. Fix it, then restart the server — it's read at startup. |
 
 ---
 
-## Connecting your iPhone
+## Connect your iPhone
 
-Your phone can't reach `localhost`, so you need a public HTTPS URL first.
+Your phone talks to your Mac **directly over your home WiFi**. Both need to be
+on the same network. Nothing is exposed to the internet.
 
-**For testing** — a free tunnel, no account needed:
+`npm run dev` deliberately only listens on the Mac itself. To let your phone
+reach it:
 
 ```bash
-npx cloudflared tunnel --url http://localhost:3000
+npm run lan
 ```
 
-**For daily use**, deploy it. `DATABASE_URL` accepts a hosted
-[Turso](https://turso.tech) `libsql://` URL with no code changes, which is what
-makes serverless hosting work.
+It prints the address to use, and refuses to start without a passphrase set —
+your WiFi is not a security boundary, and this holds a complete medical history.
 
-> Don't leave your health data behind a random public tunnel URL long-term.
-> Fine for an afternoon of testing; not a deployment.
+> The first time, macOS may ask whether **node** can accept incoming
+> connections. Click **Allow**. If you click Deny, your phone gets a timeout
+> with no error shown on the Mac; undo it in System Settings → Network →
+> Firewall → Options.
 
-Then, in **Health Auto Export** on your iPhone:
+Then, in **Health Auto Export** (App Store, free):
 
 1. Automations → add a **REST API** automation
-2. URL: `https://<your-host>/api/ingest/hae`
+2. URL: the one `npm run lan` printed, ending `/api/ingest/hae`
 3. Method **POST**, format **JSON**
-4. Add header `x-ingest-token` with your `INGEST_TOKEN`
-5. Select the metrics you want (or all of them)
-6. Set aggregation to **hourly** and an interval of 1–4 hours
+4. Add a header `x-ingest-token` — the value is on the app's Settings page with
+   a copy button, because it's 64 characters of hex
+5. Select the metrics you want, or all of them
+6. Aggregation **hourly**, interval 1–4 hours
 
-Use the app's test button to check the connection — `GET /api/ingest/hae` with
-the same token returns your current totals.
+Tap its test button, then open Settings in the app — "Last push" should say a
+few seconds ago.
+
+### When sync stops working
+
+| Symptom | Fix |
+|---|---|
+| Worked yesterday, not today | Your Mac's IP changed. Use the `.local` address instead — it survives router reboots — or re-read the new one from `npm run lan`. |
+| Nothing arrives at all | The Mac is asleep, or the firewall prompt was denied. |
+| Everything 401s | The token in the phone doesn't match `INGEST_TOKEN`. Re-copy it from Settings. |
+
+### Keeping it running
+
+A laptop sleeps, and a sleeping Mac can't receive pushes. Health Auto Export
+re-sends overlapping windows, so a short nap backfills itself on the next
+successful push — but a week away leaves a gap you'll need an export to fill.
+
+- System Settings → Battery → **Prevent automatic sleeping when the display is
+  off**, while on power. Display sleep is fine; system sleep is not.
+- Or `caffeinate -s npm run lan`, which holds it awake only while running.
+- Closing the lid sleeps it regardless.
+
+This is the honest cost of running it on a laptop instead of deploying it.
+
+---
+
+## Security
+
+- **`npm run dev` is localhost-only.** `npm run lan` is the deliberate step that
+  opens it to your network, and it refuses without a passphrase.
+- If the app is reached from anything but the machine it runs on and no
+  passphrase is set, it serves a 403 instead of your data.
+- **Your WiFi is not a security boundary.** Guests are on it. So are devices you
+  have forgotten about.
+- LAN traffic is plain HTTP. The passphrase stops casual access, not someone
+  determined who is already on your network.
+- **Don't port-forward this or put it behind a public tunnel.** That publishes a
+  complete medical record. If you want it reachable from anywhere, deploy it
+  properly behind HTTPS with `APP_PASSWORD` set.
 
 ---
 
@@ -130,7 +174,9 @@ Delete the export afterwards. It's your complete medical history in plaintext.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Dev server |
+| `npm run setup` | First-run setup. Safe to re-run; `-- --merge` fills in missing keys |
+| `npm run dev` | Start it, this machine only |
+| `npm run lan` | Start it so your phone can reach it. Refuses without a passphrase |
 | `npm test` | Full test suite |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
@@ -141,7 +187,7 @@ Delete the export afterwards. It's your complete medical history in plaintext.
 | `npm run repair-grain` | One-time fix for data ingested before hourly buckets were detected |
 | `npm run gen-export -- --mb=500` | Generate a synthetic `export.xml` for the memory test |
 | `node scripts/gen-icons.mjs` | Regenerate PWA icons from the source SVG |
-| `npx drizzle-kit push` | Apply schema changes |
+| `npm run db:push` | Apply schema changes |
 | `npx drizzle-kit generate` | Write a migration file |
 
 `npm run replay` is the check to run after touching anything in

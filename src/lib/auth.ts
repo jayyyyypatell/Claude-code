@@ -1,7 +1,9 @@
 import { timingSafeEqual, scryptSync, randomBytes } from "node:crypto";
 
 import { getIronSession, type SessionOptions } from "iron-session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+
+import { cookieSecureForRequest } from "@/lib/net/host";
 
 /**
  * Single-user authentication.
@@ -36,16 +38,19 @@ function sessionSecret(): string {
   return secret;
 }
 
-export function sessionOptions(): SessionOptions {
+export function sessionOptions(secure: boolean): SessionOptions {
   return {
     password: sessionSecret(),
     cookieName: "life_session",
     cookieOptions: {
       // Not readable from JavaScript, so an XSS bug can't lift the session.
       httpOnly: true,
-      // Secure in production only — a local dev server is plain HTTP, and a
-      // Secure cookie there would silently never be set.
-      secure: process.env.NODE_ENV === "production",
+      // Decided per request rather than from NODE_ENV: the same production
+      // build serves a LAN address over plain HTTP and a hosted domain over
+      // HTTPS, and a Secure cookie on the former is silently discarded by the
+      // browser — login appears to succeed and never sticks, which reads as a
+      // wrong passphrase. See `cookieSecureForRequest`.
+      secure,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
@@ -54,8 +59,28 @@ export function sessionOptions(): SessionOptions {
 }
 
 export async function getSession() {
-  const store = await cookies();
-  return getIronSession<Session>(store, sessionOptions());
+  const [store, h] = await Promise.all([cookies(), headers()]);
+  return getIronSession<Session>(
+    store,
+    sessionOptions(
+      cookieSecureForRequest(h.get("host"), h.get("x-forwarded-proto")),
+    ),
+  );
+}
+
+/**
+ * The session gate for anything the `(app)` layout doesn't wrap.
+ *
+ * Route handlers and server actions run outside that layout, so its check
+ * never fires for them — leaving only `proxy.ts`, which by design verifies
+ * that a cookie *exists* rather than that it is valid. Without this, a forged
+ * `life_session` cookie reads the entire health history through the coach's
+ * tool layer, which is a far worse hole than the flash of empty dashboard the
+ * proxy exists to prevent.
+ */
+export async function sessionOk(): Promise<boolean> {
+  if (!authEnabled()) return true;
+  return Boolean((await getSession()).authenticated);
 }
 
 /**

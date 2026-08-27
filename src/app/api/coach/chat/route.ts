@@ -10,6 +10,7 @@ import {
   isMockMode,
 } from "@/lib/ai/client";
 import { runMockCoach } from "@/lib/ai/mock";
+import { sessionOk } from "@/lib/auth";
 import { buildPromptContext, buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { coachTools } from "@/lib/ai/tools";
 import { todayLocal } from "@/lib/time/day";
@@ -42,6 +43,13 @@ function sse(event: string, data: unknown): string {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  // Route handlers render outside the (app) layout, so its gate never runs
+  // here. Without this check a forged session cookie reads the whole health
+  // history through the tool layer — and spends the API budget doing it.
+  if (!(await sessionOk())) {
+    return Response.json({ error: "Not signed in." }, { status: 401 });
+  }
+
   let body: ChatRequest;
   try {
     body = (await req.json()) as ChatRequest;

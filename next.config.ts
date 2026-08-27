@@ -15,6 +15,17 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_USER_TIMEZONE: process.env.USER_TIMEZONE ?? "UTC",
   },
+
+  /**
+   * The dev server rejects cross-origin requests to `/_next/*`, which is
+   * exactly what a phone reaching this Mac by IP address looks like — the page
+   * loads and then every asset 403s. `scripts/lan.mjs` fills this in with the
+   * detected LAN addresses; it is empty for a normal localhost run.
+   */
+  allowedDevOrigins: process.env.NEXT_ALLOWED_DEV_ORIGINS
+    ?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
 };
 
 export default nextConfig;

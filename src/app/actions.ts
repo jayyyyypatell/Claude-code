@@ -9,6 +9,7 @@ import {
   unarchiveHabit,
 } from "@/db/queries/habits";
 import { saveJournalEntry } from "@/db/queries/journal";
+import { sessionOk } from "@/lib/auth";
 import type { Schedule } from "@/lib/habits/streak";
 import { todayLocal, type DayString } from "@/lib/time/day";
 
@@ -19,10 +20,19 @@ import { todayLocal, type DayString } from "@/lib/time/day";
  * not an API, and this way there is no client-side fetch code, no JSON contract
  * to keep in sync, and no extra endpoint to secure.
  *
- * Everything here validates its own input. A Server Action is a public HTTP
- * endpoint in disguise — the fact that only your own UI calls it today is not
- * a security property.
+ * Everything here validates its own input, and every one of them starts with
+ * `requireSession()`. A Server Action is a public HTTP endpoint in disguise —
+ * the fact that only your own UI calls it today is not a security property,
+ * and these render outside the (app) layout that gates the pages.
  */
+
+/**
+ * Throws rather than returning a message: there is no unauthenticated caller
+ * worth writing copy for, and a Server Action has no good way to render one.
+ */
+async function requireSession(): Promise<void> {
+  if (!(await sessionOk())) throw new Error("Not signed in.");
+}
 
 function assertPositiveInt(value: unknown, field: string): number {
   const n = Number(value);
@@ -45,6 +55,7 @@ export async function toggleHabitAction(
   date: string,
   nextCount: number,
 ): Promise<void> {
+  await requireSession();
   const id = assertPositiveInt(habitId, "habit id");
   const day = assertDay(date);
   const count = Math.max(0, Math.min(50, Math.floor(Number(nextCount) || 0)));
@@ -57,6 +68,7 @@ export async function toggleHabitAction(
 }
 
 export async function createHabitAction(formData: FormData): Promise<void> {
+  await requireSession();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("A habit needs a name");
 
@@ -92,12 +104,14 @@ export async function createHabitAction(formData: FormData): Promise<void> {
 }
 
 export async function archiveHabitAction(habitId: number): Promise<void> {
+  await requireSession();
   await archiveHabit(assertPositiveInt(habitId, "habit id"));
   revalidatePath("/habits");
   revalidatePath("/");
 }
 
 export async function unarchiveHabitAction(habitId: number): Promise<void> {
+  await requireSession();
   await unarchiveHabit(assertPositiveInt(habitId, "habit id"));
   revalidatePath("/habits");
 }
@@ -105,6 +119,7 @@ export async function unarchiveHabitAction(habitId: number): Promise<void> {
 /* ----------------------------------------------------------------- journal */
 
 export async function saveJournalAction(formData: FormData): Promise<void> {
+  await requireSession();
   const date = assertDay(formData.get("date") ?? todayLocal());
 
   const scale = (name: string): number | null => {
