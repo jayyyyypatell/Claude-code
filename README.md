@@ -33,12 +33,12 @@ sync has been running is safe and repeatable.
 |---|---|
 | M0 — schema, rollups, seed data | ✅ done |
 | M1 — Health Auto Export ingest | ✅ done |
-| M2 — Today / Trends / Sleep pages | ⏳ next |
-| M3 — habits & journal | ⏳ |
-| M4 — AI coach | ⏳ |
-| M5 — weekly insights | ⏳ |
-| M6 — PWA, login, settings | ⏳ |
-| M7 — export.zip backfill | ⏳ |
+| M2 — Today / Trends / Sleep pages | ✅ done |
+| M3 — habits & journal | ✅ done |
+| M4 — AI coach | ✅ done |
+| M5 — weekly insights | ✅ done |
+| M6 — PWA, login, settings | ✅ done |
+| M7 — export.zip backfill | ⏳ next |
 
 ---
 
@@ -63,6 +63,15 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 `USER_TIMEZONE` matters more than it looks. Every "per day" number is bucketed
 against a local day, so setting it wrong shifts steps and sleep onto
 neighbouring days.
+
+**Before putting this anywhere reachable**, set `APP_PASSWORD` and a 32+
+character `SESSION_SECRET`. Without them the app runs with no login at all,
+which is right on your own machine and wrong everywhere else — this holds your
+complete health history. The settings page says so in red when it's unset.
+
+For the AI coach, add `ANTHROPIC_API_KEY`. To try the interface first without
+spending anything, set `AI_PROVIDER=mock`: it reads your real data through the
+same query layer and returns canned wording, so no numbers are invented.
 
 ---
 
@@ -107,6 +116,8 @@ the same token returns your current totals.
 | `npm run lint` | ESLint |
 | `npm run seed` | Generate synthetic history (`-- --days=N --reset`) |
 | `npm run replay` | POST every fixture at a running server and assert the ingest contract |
+| `npm run coach -- "..."` | Ask the real coach from the CLI; prints every tool call and cache hit rate |
+| `node scripts/gen-icons.mjs` | Regenerate PWA icons from the source SVG |
 | `npx drizzle-kit push` | Apply schema changes |
 | `npx drizzle-kit generate` | Write a migration file |
 
@@ -163,6 +174,22 @@ space-separated `2026-08-26 14:30:00 -0700` form is not ISO 8601, parses
 differently across engines, and discards the offset that decides the local day.
 See `src/lib/hae/dates.ts`.
 
+### The AI coach never gets your data in a prompt
+
+150 metrics across years of daily values is roughly 2.7 million tokens, so none
+of it can go in a prompt. The coach starts with nothing and calls tools to
+fetch exactly what it needs. Measured on seeded data, a full answer to "how did
+I sleep last week vs the week before?" costs about **1,350 tokens** against
+~495,000 for the raw dailies.
+
+Statistics are computed in TypeScript, never by the model — a fabricated
+correlation coefficient is exactly the confident-sounding wrong answer that
+would make the feature worse than useless. There is deliberately no SQL tool: a
+fixed set of parameterised functions is the safety model.
+
+The tool trace is shown in the UI, so you can see precisely which parts of your
+data each answer read.
+
 ### Units are canonicalised per metric, not per dimension
 
 Values convert to a metric's own storage unit at ingest, and back out only at
@@ -182,7 +209,14 @@ as "0.1 g".
   bug can be fixed and replayed rather than losing data. Set
   `KEEP_RAW_PAYLOADS=0` to turn this off.
 - Journal entries can be marked private and are then withheld from the AI coach
-  entirely — enforced in the query layer, not by asking the model nicely.
+  entirely — enforced in the SQL of `listJournalForAI`, not by asking the model
+  nicely.
+- The service worker **never caches `/api/*`**. A stale health number is worse
+  than none, and cached responses would leave a copy of your medical data in
+  Cache Storage.
+- Auth is enforced in the `(app)` route group's layout, not only in `proxy.ts`.
+  The proxy just checks a cookie exists — a forged one gets past it and is
+  rejected by the layout, where the data is actually read.
 - Delete `export.zip` after importing it. It contains your complete medical
   history in plaintext.
 

@@ -1,19 +1,19 @@
 import type { Metadata, Viewport } from "next";
 
-import { NavBar } from "@/components/NavBar";
-
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Life",
   description: "Your health, habits and journal in one place.",
-  // Installed to the iPhone home screen, this is what makes it feel like an
-  // app rather than a browser tab. Expanded in M6 alongside the manifest.
+  applicationName: "Life",
+  // What makes it feel like an app rather than a browser tab once it's on the
+  // home screen.
   appleWebApp: {
     capable: true,
     title: "Life",
     statusBarStyle: "black-translucent",
   },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -33,12 +33,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh">
-        <div className="mx-auto w-full max-w-4xl px-4 pb-24 pt-4 sm:px-6">
-          {children}
-        </div>
-        <NavBar />
-      </body>
+      {/* The shell (nav, page padding) lives in the (app) layout, so /login
+          renders without a tab bar it can't use. */}
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }
