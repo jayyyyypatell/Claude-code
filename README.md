@@ -38,7 +38,7 @@ sync has been running is safe and repeatable.
 | M4 — AI coach | ✅ done |
 | M5 — weekly insights | ✅ done |
 | M6 — PWA, login, settings | ✅ done |
-| M7 — export.zip backfill | ⏳ next |
+| M7 — export.zip backfill | ✅ done |
 
 ---
 
@@ -106,6 +106,26 @@ the same token returns your current totals.
 
 ---
 
+## Importing your history
+
+Live sync only carries data from the day you connect your phone onward.
+Everything before that comes from a one-time export:
+
+1. Health.app → your photo (top right) → **Export All Health Data**
+2. Get `export.zip` onto the machine running this app
+3. `npm run import -- /path/to/export.zip`
+
+Safe to run on top of live sync, and safe to run twice — both paths converge
+on the same upsert. `--since=2024-01-01` limits how far back it goes;
+`--routes` keeps workout GPS traces, which are dropped by default.
+
+Delete the export afterwards. It's your complete medical history in plaintext.
+
+> If you ingested data before this version, run `npm run repair-grain` once.
+> See the note under [grain](#grain-prevents-a-double-count-across-the-two-ingest-paths).
+
+---
+
 ## Commands
 
 | Command | What it does |
@@ -117,6 +137,9 @@ the same token returns your current totals.
 | `npm run seed` | Generate synthetic history (`-- --days=N --reset`) |
 | `npm run replay` | POST every fixture at a running server and assert the ingest contract |
 | `npm run coach -- "..."` | Ask the real coach from the CLI; prints every tool call and cache hit rate |
+| `npm run import -- <export.zip>` | Backfill your full Apple Health history |
+| `npm run repair-grain` | One-time fix for data ingested before hourly buckets were detected |
+| `npm run gen-export -- --mb=500` | Generate a synthetic `export.xml` for the memory test |
 | `node scripts/gen-icons.mjs` | Regenerate PWA icons from the source SVG |
 | `npx drizzle-kit push` | Apply schema changes |
 | `npx drizzle-kit generate` | Write a migration file |
@@ -129,8 +152,9 @@ an iPhone.
 
 ## Architecture notes
 
-Three decisions carry most of the weight. Each fixes a bug that would otherwise
-be silent — producing plausible-looking wrong numbers rather than an error.
+A handful of decisions carry most of the weight. Each fixes a bug that would
+otherwise be silent — producing plausible-looking wrong numbers rather than an
+error.
 
 ### One fact table, not 150
 
@@ -159,7 +183,24 @@ database and every step count silently doubles.
 
 So `grain` is part of the uniqueness key, and `daily_metrics` picks exactly one
 grain per (metric, day) by precedence (`sample` > `hourly` > `daily`) rather
-than summing across them. `src/db/rollups.test.ts` covers this directly.
+than summing across them. `src/db/rollups.test.ts` covers this directly, and
+`src/lib/import/convergence.test.ts` runs both ingest paths into one database
+and asserts the daily total doesn't move.
+
+**Getting the label right turned out to be the hard part.** Health Auto Export
+sends an hourly bucket as `{date, qty}` with *no end date*, so inferring grain
+from a point's own span saw zero width and called every bucket a raw sample —
+which made the protection above inert. One point can't say what window it
+covers; a series of them can. Buckets arrive evenly spaced and sitting exactly
+on the hour, and raw samples do neither, so grain is inferred per series
+(`inferSeriesGrain`). Both signals are required, so a scale read at 07:00 every
+morning isn't mistaken for a daily aggregate. Set `HAE_AGGREGATION=hourly` to
+state it outright — the only genuinely ambiguous case is a push carrying a
+single bucket.
+
+If you ran an earlier build, `npm run repair-grain` relabels the affected rows.
+It matters: `sample` outranks `hourly`, so mislabelled rows keep winning and
+correct data pushed afterwards is silently ignored for the days they cover.
 
 ### Local days, not UTC days
 
@@ -190,6 +231,28 @@ fixed set of parameterised functions is the safety model.
 The tool trace is shown in the UI, so you can see precisely which parts of your
 data each answer read.
 
+### The history import streams, and is bounded by batch size
+
+A real `export.xml` is a single XML document of a few hundred megabytes holding
+millions of `<Record>` elements. A DOM parse needs the whole tree resident and
+dies, so the importer is SAX (`saxes`) reading through a streaming unzip
+(`yauzl`) — one element at a time, then forgotten.
+
+Backpressure is the part that actually matters. The parser's consumer returns a
+promise and the read stream is paused until it settles. Without that, SAX
+parses at disk speed while SQLite writes at database speed, and the difference
+accumulates in memory until the process dies — the exact failure streaming was
+meant to avoid.
+
+Verified against a generated 500MB export: **2.15M records in 64s, peak RSS
+85MB**, running under `--max-old-space-size=256`. Reproduce it with
+`npm run gen-export -- --mb=500`.
+
+`HKQuantityTypeIdentifierStepCount` is mapped to `step_count` so both ingest
+paths land on the same metric. Without that table the backfill would register
+its own metric types and sit in rows no chart reads and no rollup touches — it
+would appear to work and produce nothing.
+
 ### Units are canonicalised per metric, not per dimension
 
 Values convert to a metric's own storage unit at ingest, and back out only at
@@ -218,7 +281,9 @@ as "0.1 g".
   The proxy just checks a cookie exists — a forged one gets past it and is
   rejected by the layout, where the data is actually read.
 - Delete `export.zip` after importing it. It contains your complete medical
-  history in plaintext.
+  history in plaintext, and the importer never copies it anywhere.
+- Workout GPS routes inside `export.zip` are skipped unless you pass
+  `--routes`, for the same reason they're off in live sync.
 
 ---
 

@@ -108,6 +108,65 @@ export function inferGrain(startAt: number, endAt: number): Grain {
   return "sample";
 }
 
+/**
+ * Infer grain for a whole series, when the individual points can't say.
+ *
+ * Health Auto Export sends an hourly aggregate as `{date, qty}` with no end
+ * date, so `inferGrain` sees a zero-width span and calls it a raw sample.
+ * That is not cosmetic: `grain` is what stops a history backfill being summed
+ * on top of live sync, and mislabelling every bucket as `sample` makes the
+ * protection inert. The user's step counts would double the day they imported
+ * their `export.xml`, and the total would look entirely plausible.
+ *
+ * A single timestamp carries no duration, but a sequence of them does. Buckets
+ * arrive evenly spaced and sitting exactly on a boundary; raw samples do
+ * neither. Both signals are required, so a series that merely happens to be
+ * regular — a scale read at the same time each morning — is not mistaken for
+ * a daily aggregate.
+ */
+export function inferSeriesGrain(startTimes: number[]): Grain | null {
+  if (startTimes.length < 2) return null;
+
+  const sorted = [...startTimes].sort((a, b) => a - b);
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i] - sorted[i - 1];
+    // Two readings at the same instant are two sources, not a cadence.
+    if (gap > 0) gaps.push(gap);
+  }
+  if (gaps.length === 0) return null;
+
+  gaps.sort((a, b) => a - b);
+  const median = gaps[Math.floor(gaps.length / 2)];
+
+  // Fraction of timestamps sitting exactly on a wall-clock boundary. Computed
+  // against the epoch, which is aligned to the hour in every real timezone —
+  // including the half-hour offsets, since those are still whole minutes.
+  const alignedTo = (unit: number) =>
+    sorted.filter((t) => t % unit === 0).length / sorted.length;
+
+  if (median >= 23 * HOUR_MS && median <= 25 * HOUR_MS && alignedTo(HOUR_MS) >= 0.8) {
+    return "daily";
+  }
+  if (median >= 50 * MINUTE_MS && median <= 70 * MINUTE_MS && alignedTo(HOUR_MS) >= 0.8) {
+    return "hourly";
+  }
+  return null;
+}
+
+/**
+ * The aggregation the user configured in Health Auto Export, if they said.
+ *
+ * Detection needs at least two points, so a push carrying a single hourly
+ * bucket is genuinely ambiguous. This resolves it. `auto` is the default and
+ * is right for almost everyone.
+ */
+export function configuredGrain(): Grain | null {
+  const raw = process.env.HAE_AGGREGATION?.trim().toLowerCase();
+  if (raw === "hourly" || raw === "daily" || raw === "sample") return raw;
+  return null;
+}
+
 /** Coerce HAE's numbers, which arrive as numbers or numeric strings. */
 function num(v: unknown): number | null {
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -204,6 +263,21 @@ export function normalizeHaePayload(
     const descriptor = describeMetric(name, units);
     if (!descriptor.isKnown) unknown.add(name);
 
+    // Decided once for the series, because a lone `{date, qty}` cannot say
+    // what window it covers. Per-row `endDate` still wins where HAE sends one.
+    const seriesStarts: number[] = [];
+    for (const rawRow of rows) {
+      if (!rawRow || typeof rawRow !== "object") continue;
+      const d = tryParseHaeDate(
+        (rawRow as Record<string, unknown>).date ??
+          (rawRow as Record<string, unknown>).startDate,
+        tz,
+      );
+      if (d) seriesStarts.push(d.epochMs);
+    }
+    const seriesGrain =
+      options.forceGrain ?? configuredGrain() ?? inferSeriesGrain(seriesStarts);
+
     for (const rawRow of rows) {
       if (!rawRow || typeof rawRow !== "object") continue;
       const row = rawRow as Record<string, unknown>;
@@ -219,7 +293,13 @@ export function normalizeHaePayload(
       const endParsed = row.endDate ? tryParseHaeDate(row.endDate, tz) : null;
       const startAt = parsed.epochMs;
       const endAt = endParsed?.epochMs ?? startAt;
-      const grain = options.forceGrain ?? inferGrain(startAt, endAt);
+      // An explicit endDate is the strongest signal there is; fall back to the
+      // series cadence, then to the (zero-width) span.
+      const grain =
+        options.forceGrain ??
+        (endParsed ? inferGrain(startAt, endAt) : null) ??
+        seriesGrain ??
+        inferGrain(startAt, endAt);
       const sourceName = String(row.source ?? metric.source ?? "");
       const rowUnits = typeof row.units === "string" ? row.units : units;
 

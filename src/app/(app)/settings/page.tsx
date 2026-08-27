@@ -110,6 +110,56 @@ export default async function SettingsPage() {
         </p>
       </section>
 
+      <section
+        className="flex flex-col gap-3 rounded-xl border p-4"
+        style={{ borderColor: "var(--hairline)", background: "var(--surface)" }}
+      >
+        <h2 className="text-base font-medium" style={{ color: "var(--ink)" }}>
+          Import your history
+        </h2>
+        <p className="text-sm" style={{ color: "var(--ink-2)" }}>
+          Live sync only carries data from the day you connected your phone
+          onward. To bring in everything before that, export from Health.app
+          once and import the file.
+        </p>
+
+        <ol
+          className="ml-4 flex list-decimal flex-col gap-2 text-sm"
+          style={{ color: "var(--ink-2)" }}
+        >
+          <li>
+            Health.app &rarr; your photo (top right) &rarr;{" "}
+            <strong>Export All Health Data</strong>. It takes a few minutes and
+            produces <code>export.zip</code>.
+          </li>
+          <li>Get the file onto the machine running this app.</li>
+          <li>
+            Run{" "}
+            <code
+              className="rounded px-1.5 py-0.5 text-xs"
+              style={{ background: "var(--surface-2)" }}
+            >
+              npm run import -- /path/to/export.zip
+            </code>
+          </li>
+        </ol>
+
+        <p className="text-sm" style={{ color: "var(--ink-2)" }}>
+          Safe to run on top of live sync, and safe to run twice — everything
+          upserts. A decade of history is normal and takes a minute or two.
+        </p>
+
+        <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
+          Add <code>--since=2024-01-01</code> to import only recent history, or{" "}
+          <code>--routes</code> to keep workout GPS traces (off by default).
+        </p>
+
+        <p className="text-sm" style={{ color: "var(--critical)" }}>
+          Delete <code>export.zip</code> when you&rsquo;re done — it&rsquo;s
+          your complete medical history in plaintext.
+        </p>
+      </section>
+
       <Section title="Configuration">
         <Row label="Timezone" value={USER_TIMEZONE} hint="USER_TIMEZONE" />
         <Row
@@ -136,6 +186,11 @@ export default async function SettingsPage() {
           label="Weekly report job"
           value={configured.cron ? "set" : "not set"}
           hint="CRON_SECRET"
+        />
+        <Row
+          label="Push aggregation"
+          value={process.env.HAE_AGGREGATION?.trim() || "auto-detect"}
+          hint="HAE_AGGREGATION"
         />
       </Section>
 

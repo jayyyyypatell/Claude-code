@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { inferGrain, normalizeHaePayload } from "./normalize";
+import { inferGrain, inferSeriesGrain, normalizeHaePayload } from "./normalize";
 
 const TZ = "America/New_York";
 
@@ -230,16 +230,71 @@ describe("inferGrain", () => {
     expect(inferGrain(t, t + 23 * 3_600_000)).toBe("daily");
   });
 
-  it("is what the fixtures actually produce", () => {
-    // Hourly step buckets in the scalar fixture are instantaneous timestamps
-    // with no endDate, so they read as samples — which is correct: without an
-    // end we cannot claim they cover an hour.
+  it("reads the fixtures' hourly buckets as hourly", () => {
+    // These are instantaneous timestamps with no endDate. One of them says
+    // nothing about the window it covers — but a run of them on exact hour
+    // boundaries does, and calling them `sample` is what would let a history
+    // backfill be summed on top of live sync.
     const r = run("scalar-metrics.json");
-    expect(r.points.every((p) => p.grain === "sample")).toBe(true);
+    const steps = r.points.filter((p) => p.metricKey === "step_count");
+    expect(steps.length).toBeGreaterThan(1);
+    expect(steps.every((p) => p.grain === "hourly")).toBe(true);
   });
 
   it("honours an explicit grain override", () => {
     const r = run("scalar-metrics.json", { forceGrain: "hourly" as const });
     expect(r.points.every((p) => p.grain === "hourly")).toBe(true);
+  });
+});
+
+describe("inferSeriesGrain", () => {
+  const hour = 3_600_000;
+  const at = (iso: string) => Date.parse(iso);
+
+  it("recognises evenly spaced buckets on the hour", () => {
+    const starts = [0, 1, 2, 3].map((i) => at("2026-08-26T08:00:00Z") + i * hour);
+    expect(inferSeriesGrain(starts)).toBe("hourly");
+  });
+
+  it("recognises daily buckets", () => {
+    const starts = [0, 1, 2, 3].map((i) => at("2026-08-26T00:00:00Z") + i * 24 * hour);
+    expect(inferSeriesGrain(starts)).toBe("daily");
+  });
+
+  it("still reads daily across a 23-hour DST day", () => {
+    const starts = [
+      at("2026-11-01T07:00:00Z"),
+      at("2026-11-02T08:00:00Z"), // 25h later in wall-clock terms
+      at("2026-11-03T08:00:00Z"),
+    ];
+    expect(inferSeriesGrain(starts)).toBe("daily");
+  });
+
+  it("does not mistake irregular raw samples for buckets", () => {
+    const base = at("2026-08-26T08:00:00Z");
+    const starts = [base, base + 137_000, base + 402_000, base + 900_000];
+    expect(inferSeriesGrain(starts)).toBeNull();
+  });
+
+  it("does not call a daily habit an aggregate just because it is regular", () => {
+    // A scale read within a few minutes of 07:00 every morning is regularly
+    // spaced but is not a bucket, and treating it as one would let it outrank
+    // real data in the rollup.
+    const starts = [0, 1, 2, 3].map(
+      (i) => at("2026-08-26T07:00:00Z") + i * 24 * hour + i * 137_000,
+    );
+    expect(inferSeriesGrain(starts)).toBeNull();
+  });
+
+  it("declines to guess from a single point", () => {
+    // Genuinely ambiguous. HAE_AGGREGATION exists for this case.
+    expect(inferSeriesGrain([at("2026-08-26T08:00:00Z")])).toBeNull();
+    expect(inferSeriesGrain([])).toBeNull();
+  });
+
+  it("ignores duplicate timestamps from two sources", () => {
+    const base = at("2026-08-26T08:00:00Z");
+    const starts = [base, base, base + hour, base + hour, base + 2 * hour];
+    expect(inferSeriesGrain(starts)).toBe("hourly");
   });
 });
