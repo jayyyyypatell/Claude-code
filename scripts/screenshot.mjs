@@ -14,7 +14,7 @@ const BASE = process.argv[2] ?? "http://localhost:3000";
 const OUT = process.argv[3] ?? "/tmp/shots";
 mkdirSync(OUT, { recursive: true });
 
-const PAGES = ["/", "/trends", "/sleep"];
+const PAGES = ["/", "/habits", "/journal", "/journal/2026-08-26", "/trends", "/sleep"];
 const VIEWPORTS = [
   { name: "desktop", width: 1000, height: 1000 },
   { name: "phone", width: 390, height: 844 },
@@ -47,7 +47,7 @@ for (const theme of ["light", "dark"]) {
       await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
       // Give the ResizeObserver a frame to size the charts.
       await page.waitForTimeout(400);
-      const slug = path === "/" ? "today" : path.replace(/\//g, "");
+      const slug = path === "/" ? "today" : path.replace(/^\//, "").replace(/\//g, "-");
       const file = `${OUT}/${slug}-${theme}-${vp.name}.png`;
       await page.screenshot({ path: file, fullPage: true });
       console.log(`  ${file}`);

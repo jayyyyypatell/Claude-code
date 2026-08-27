@@ -12,8 +12,15 @@ import { usePathname } from "next/navigation";
  * pixels of the tab bar are permanently under the system gesture area.
  */
 
+/**
+ * Six destinations is the practical ceiling for a phone tab bar, and this app
+ * genuinely has six things you go to. Ordered by how often you'd tap them:
+ * the three daily ones first, then the three you review periodically.
+ */
 const TABS = [
   { href: "/", label: "Today", icon: TodayIcon },
+  { href: "/habits", label: "Habits", icon: HabitsIcon },
+  { href: "/journal", label: "Journal", icon: JournalIcon },
   { href: "/trends", label: "Trends", icon: TrendsIcon },
   { href: "/sleep", label: "Sleep", icon: SleepIcon },
   { href: "/coach", label: "Coach", icon: CoachIcon },
@@ -42,7 +49,7 @@ export function NavBar() {
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors"
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors sm:text-[11px]"
               style={{ color: active ? "var(--series-1)" : "var(--ink-muted)" }}
             >
               <Icon />
@@ -88,6 +95,25 @@ function SleepIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" {...stroke}>
       <path d="M20 14a8 8 0 1 1-9.9-9.8A7 7 0 0 0 20 14z" />
+    </svg>
+  );
+}
+
+function HabitsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" {...stroke}>
+      <path d="M9 11l2 2 4-4" />
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M8 2v4M16 2v4" />
+    </svg>
+  );
+}
+
+function JournalIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 4a2 2 0 0 1 2-2h13v18H6a2 2 0 0 0-2 2z" />
+      <path d="M8 7h7M8 11h7" />
     </svg>
   );
 }

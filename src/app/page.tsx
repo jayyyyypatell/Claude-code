@@ -1,13 +1,17 @@
 import Link from "next/link";
 
+import { HabitList, type HabitItem } from "@/components/HabitList";
 import { StatTile } from "@/components/StatTile";
 import { SyncBadge } from "@/components/SyncBadge";
+import { listHabitsWithProgress } from "@/db/queries/habits";
+import { getJournalEntry } from "@/db/queries/journal";
 import {
   getSleepNights,
   getSyncStatus,
   getTodayMetrics,
   getWorkouts,
 } from "@/db/queries/metrics";
+import { describeSchedule, isScheduled } from "@/lib/habits/streak";
 import { formatDuration, formatValue } from "@/lib/format";
 import { addDays, formatDayShort, todayLocal } from "@/lib/time/day";
 
@@ -39,11 +43,37 @@ export default async function TodayPage() {
   const sync = await getSyncStatus();
   const today = todayLocal(undefined, sync.now);
 
-  const [metrics, nights, workouts] = await Promise.all([
+  const [metrics, nights, workouts, habits, journalToday] = await Promise.all([
     getTodayMetrics(PINNED, today),
     getSleepNights(addDays(today, -2), today),
     getWorkouts(addDays(today, -1), today, 3),
+    listHabitsWithProgress(today),
+    getJournalEntry(today),
   ]);
+
+  // Only what is actually expected today — a Mon/Wed/Fri habit on a Tuesday
+  // is noise on this page, not a reminder.
+  const dueHabits: HabitItem[] = habits
+    .filter((h) => isScheduled(h, today))
+    .map((h) => ({
+      id: h.id,
+      name: h.name,
+      emoji: h.emoji,
+      color: h.color,
+      targetPerDay: h.targetPerDay,
+      todayCount: h.todayCount,
+      scheduleLabel: describeSchedule(h),
+      streak: {
+        current: h.streak.current,
+        longest: h.streak.longest,
+        completionRate: h.streak.completionRate,
+      },
+      dueToday: true,
+    }));
+
+  const habitsDone = dueHabits.filter(
+    (h) => h.todayCount >= h.targetPerDay,
+  ).length;
 
   const lastNight = nights.at(-1) ?? null;
 
@@ -157,6 +187,52 @@ export default async function TodayPage() {
             />
           ))}
         </div>
+      </section>
+
+      {dueHabits.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h2
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              Habits
+            </h2>
+            <span className="text-xs" style={{ color: "var(--ink-muted)" }}>
+              <span className="tabular">
+                {habitsDone}/{dueHabits.length}
+              </span>{" "}
+              done
+            </span>
+          </div>
+          <HabitList habits={dueHabits} date={today} compact />
+        </section>
+      )}
+
+      <section className="flex flex-col gap-2">
+        <SectionHeading href="/journal">Journal</SectionHeading>
+        <Link
+          href={`/journal/${today}`}
+          className="block rounded-xl border p-4 transition-colors"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--hairline)",
+          }}
+        >
+          {journalToday?.body ? (
+            <p
+              className="line-clamp-3 text-sm"
+              style={{ color: "var(--ink-2)" }}
+            >
+              {journalToday.body}
+            </p>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
+              Nothing written today. Even a sentence helps — it&rsquo;s what lets
+              the coach explain <em>why</em> a week went the way it did.
+            </p>
+          )}
+        </Link>
       </section>
 
       {workouts.length > 0 && (
